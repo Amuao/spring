@@ -126,10 +126,18 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// then ultimately reset this.delegate back to its original (parent) reference.
 		// this behavior emulates a stack of delegates without actually necessitating one.
 		BeanDefinitionParserDelegate parent = this.delegate;
+		//创建一个单独的解析器来进行解析
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
+		//判断是否为默认的命名空间
 		if (this.delegate.isDefaultNamespace(root)) {
-			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
+			/**
+			 * 判断是否有PROFILE_ATTRIBUTE这个属性值
+			 * 1.PROFILE_ATTRIBUTE是否包含 profile这个属性值
+			 * 2.用来指定选择哪一个配置文件
+			 * 3.springboot可能会有
+			 */
+			 String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
 			if (StringUtils.hasText(profileSpec)) {
 				String[] specifiedProfiles = StringUtils.tokenizeToStringArray(
 						profileSpec, BeanDefinitionParserDelegate.MULTI_VALUE_ATTRIBUTE_DELIMITERS);
@@ -146,6 +154,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		}
 
 		preProcessXml(root);
+		//解析BeanDefinition  传入根节点，和解析器==>从跟节点解析document
 		parseBeanDefinitions(root, this.delegate);
 		postProcessXml(root);
 
@@ -166,16 +175,25 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 * @param root the DOM root element of the document
 	 */
 	protected void parseBeanDefinitions(Element root, BeanDefinitionParserDelegate delegate) {
-		if (delegate.isDefaultNamespace(root)) {
-			NodeList nl = root.getChildNodes();
-			for (int i = 0; i < nl.getLength(); i++) {
-				Node node = nl.item(i);
-				if (node instanceof Element) {
-					Element ele = (Element) node;
-					if (delegate.isDefaultNamespace(ele)) {
+		if (delegate.isDefaultNamespace(root)) {//是否是默认的命名空间
+			//<beans>
+			NodeList nl = root.getChildNodes();//获取第一个子节点
+			for (int i = 0; i < nl.getLength(); i++) {//获取nl的长度
+				//比如<beans></beans> 下的<bean></bean>等
+				Node node = nl.item(i);//获取子节点下的每一个子节点==>空格换行也算
+				if (node instanceof Element) {//判断该节点是否为一个元素
+					Element ele = (Element) node;//将节点转为Element 元素对象
+					/**
+					 * 1.比如<bean><bean/>就是默认的命名空间里的元素
+					 * 2.<aop:><aop:/>  <context:><context/>这些是我们额外导入的命名空间
+					 * 3.这两种的解析方式是不一样==>所以要分开去进行解析
+					 * 4.可以看到方法调用了解不同的处理逻辑
+					 */
+					if (delegate.isDefaultNamespace(ele)) {//根据当前这个元素判断是否为默认命名中间中的元素
 						parseDefaultElement(ele, delegate);
 					}
 					else {
+						//解析自定义标签
 						delegate.parseCustomElement(ele);
 					}
 				}
@@ -187,17 +205,21 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	}
 
 	private void parseDefaultElement(Element ele, BeanDefinitionParserDelegate delegate) {
+		//如果是<import>
 		if (delegate.nodeNameEquals(ele, IMPORT_ELEMENT)) {
 			importBeanDefinitionResource(ele);
 		}
+		//如果是<alias>
 		else if (delegate.nodeNameEquals(ele, ALIAS_ELEMENT)) {
 			processAliasRegistration(ele);
 		}
+		//如果是<bean>
 		else if (delegate.nodeNameEquals(ele, BEAN_ELEMENT)) {
 			processBeanDefinition(ele, delegate);
 		}
+		//如果是<beans>
 		else if (delegate.nodeNameEquals(ele, NESTED_BEANS_ELEMENT)) {
-			// recurse
+			// recurse 递归解析
 			doRegisterBeanDefinitions(ele);
 		}
 	}
@@ -303,11 +325,17 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 * and registering it with the registry.
 	 */
 	protected void processBeanDefinition(Element ele, BeanDefinitionParserDelegate delegate) {
+		/**
+		 * beanDefinitionHolder是beanDefinition对象的封装类，封装了BeanDefinition，bean的名字和别名，用它来完成向IOC容器的注册。
+		 * 得到这个beanDefinitionHolder就意味着，beanDefinition是通过BeanDefinitionParserDelegate对xml元素的信息
+		 * 按照spring的bean规则进行解析得到的。
+		 */
 		BeanDefinitionHolder bdHolder = delegate.parseBeanDefinitionElement(ele);
 		if (bdHolder != null) {
 			bdHolder = delegate.decorateBeanDefinitionIfRequired(ele, bdHolder);
 			try {
 				// Register the final decorated instance.
+				//向ioc容器注册解析得到的beanDefinition的地方
 				BeanDefinitionReaderUtils.registerBeanDefinition(bdHolder, getReaderContext().getRegistry());
 			}
 			catch (BeanDefinitionStoreException ex) {
@@ -315,6 +343,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 						bdHolder.getBeanName() + "'", ele, ex);
 			}
 			// Send registration event.
+			//在beanDefinition向ioc容器注册完成之后，发送消息
 			getReaderContext().fireComponentRegistered(new BeanComponentDefinition(bdHolder));
 		}
 	}

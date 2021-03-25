@@ -1,0 +1,32 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.3.9.RELEASE'
+}
+
+group 'com.amu.debug'
+version '0.0.1-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'io.spring.dependency-management'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(project(":spring-beans"))
+    implementation(project(":spring-context"))
+    implementation(project(":spring-aspects"))
+    implementation('org.springframework.boot:spring-boot-starter-web')
+    ///implementation 'org.springframework.boot:spring-boot-loader:2.4.4'
+}
+
+bootJar {
+    manifestContentCharset 'utf-8'
+    metadataCharset 'utf-8'
+    archivesBaseName = 'spring-amu-debug' // jar包名
+    manifest {
+        attributes "Manifest-Version": 1.0,
+                'Start-Class': 'com.amu.debug.boot.Application' //  springboot项目的启动类
+    }
+}
